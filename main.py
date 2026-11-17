@@ -161,9 +161,19 @@ def donor_day_curves(case: dict) -> list:
 def forecast_case(case: dict, name: str) -> dict:
     levels = list(case["levels"])
     known = next((k for k in case["known"] if k["hour"] == 1), None)
-    if known is None:
-        raise ValueError(f"{name} has no hour-1 print")
-    p1 = max(1.0, float(known["viewers"]))
+    p1 = None
+    if known is not None:
+        try:
+            p1 = float(known["viewers"])
+        except (TypeError, ValueError):
+            p1 = None
+    if p1 is None or p1 <= 0:
+        # No usable hour-1 print: fall back to the latest pre-checkpoint
+        # hourly mean so the run still writes a valid forecast instead of
+        # crashing (a missing hour 1 means the final has no answer anyway).
+        hourly = case.get("history_hourly") or []
+        p1 = float(hourly[-1]["viewers"]) if hourly else 1.0
+    p1 = max(1.0, p1)
     log_p1 = math.log(p1)
     curves = donor_day_curves(case)
     rows = []
